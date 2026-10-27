@@ -6,7 +6,14 @@ These instructions are intended for Claude Code only and apply to this directory
 
 Chrome extension (Manifest V3, WXT + TypeScript, React, zod, Vitest) that reads the Google Form in the active tab and lets an LLM fill it page by page, never submitting without the user's confirmation. Full requirements: `docs/SPEC.md`. Backend design (draft, awaiting approval): `docs/backend-architecture.md`.
 
-No application code, build commands, or test commands yet. Update this section when code is added.
+Commands (WXT build not set up yet):
+
+- `npm test` runs all Vitest tests; `npx vitest run tests/providers/anthropic.test.ts` runs one file, `-t "<name>"` one test.
+- `npm run typecheck` runs `tsc --noEmit`.
+
+Provider tests stub global `fetch` (`mockFetch` in `tests/helpers.ts`) with SSE/JSON responses, so no network or keys are needed. Note: `@anthropic-ai/sdk` 1.x sends the API key as `Authorization: Bearer`, not `x-api-key`.
+
+The LLM output schema (`src/shared/answer.ts`) must stay valid for strict structured output on all providers: every field required (use `.nullable()`, not `.optional()`), `z.union` not `discriminatedUnion` (OpenAI strict rejects `oneOf`), no numeric constraints (ranges are checked in `validateAgainstPage`).
 
 ## Scope for Claude Code: backend only
 

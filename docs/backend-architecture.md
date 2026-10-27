@@ -1,4 +1,9 @@
-# Backend architecture (DRAFT, awaiting approval)
+# Backend architecture (approved 2026-10-27)
+
+Implementation notes that refine the approved draft:
+- `Answer` fields that were optional (`needsUser`, `otherText`) are `nullable` and always present, so one JSON schema works for strict structured output on every provider. The "Other" choice is `option: "__other__"` + `otherText`.
+- `Question.validation` is a fixed op enum per kind (see `src/shared/form.ts`); the parser maps Google's codes onto it.
+- Anthropic API key goes out as `Authorization: Bearer` (SDK 1.x behaviour).
 
 Scope: service worker, provider layer, shared contract, state, keys, permissions.
 Parser, filler, and UI are out of scope here; they only consume the contract in `src/shared/`.
