@@ -1,29 +1,39 @@
-# Pokyny pro Codex
+# Instructions for Codex
 
-Tyto pokyny platí pro tuto složku a její podsložky. Konkrétnější pokyny v podsložkách mají přednost.
+These instructions are intended for Codex only and apply to this directory and its subdirectories. More specific Codex instructions in subdirectories take precedence. They do not configure Claude Code or define instructions for other contributors.
 
-## Komunikace
+## Communication
 
-- Odpovídej česky, pokud uživatel nezvolí jiný jazyk.
-- Piš stručně, srozumitelně a konkrétně.
-- Zadání k provedení práce rovnou realizuj. Ptej se pouze tehdy, když chybějící informace zásadně ovlivňuje výsledek.
-- U delší práce průběžně sděluj podstatný postup a zjištění.
-- Rozlišuj ověřená fakta, odhady a předpoklady.
+- Respond in English unless the user chooses another language.
+- Be concise, clear, and specific.
+- Carry out actionable requests directly. Ask questions only when missing information would materially affect the result.
+- During longer tasks, share meaningful progress updates and findings.
+- Distinguish verified facts from estimates and assumptions.
 
-## Práce se soubory
+## Working with Files
 
-- Nejdříve si přečti relevantní soubory a respektuj jejich stávající strukturu a styl.
-- Zachovej existující obsah, který se zadáním nesouvisí.
-- Prováděj cílené změny; nepřidávej zbytečné závislosti ani nesouvisející úpravy.
-- Nemaž ani nepřepisuj cizí rozpracované změny.
-- Pracovní skripty, koncepty a dočasná data ukládej do `work/`.
-- Hotové výstupy určené uživateli ukládej do `outputs/`, pokud zadání neurčuje jiné místo. Projektové soubory a konfiguraci upravuj na jejich příslušném místě.
-- Do souborů ani výstupů nevkládej hesla, přístupové tokeny nebo jiné tajné údaje.
+- Read relevant files first and follow their existing structure and style.
+- Preserve existing content unrelated to the request.
+- Make focused changes; avoid unnecessary dependencies and unrelated edits.
+- Do not delete or overwrite other people's work in progress.
+- Store working scripts, drafts, and temporary data in `work/`.
+- Store finished deliverables in `outputs/` unless the request specifies another location. Edit project files and configuration in their appropriate locations.
+- Never include passwords, access tokens, or other secrets in files or outputs.
 
-## Ověření a dokončení
+## Collaboration with a Contributor Using Claude Code
 
-- Výsledek přiměřeně ověř podle typu změny. U kódu použij dostupné relevantní kontroly; u dokumentů zkontroluj obsah a formátování.
-- Nevydávej neprovedené kontroly za úspěšné.
-- Na závěr stručně uveď, co se změnilo, jak bylo ověřeno a případná podstatná omezení.
-- Externí publikování, odesílání zpráv a nevratné operace prováděj pouze v rozsahu oprávnění od uživatele.
+- Another person works on this repository using Claude Code. Treat their changes as a collaborator's work and preserve them.
+- Keep Codex instructions in `AGENTS.md`. Do not edit, delete, or synchronize `CLAUDE.md` or Claude Code configuration unless the user explicitly requests it.
+- Before editing shared files, inspect the current Git status and relevant diffs. Re-read files that changed during your work before applying further edits.
+- Keep changes focused on the assigned task. Do not reformat or refactor unrelated code written by the collaborator.
+- Never discard the collaborator's changes, reset their work, or force-push over shared history.
+- When committing, stage only changes belonging to the current task. Do not include another contributor's uncommitted work.
+- If edits overlap and the intended result is unclear, explain the conflict and ask the user before overwriting either version.
+- Leave a concise handoff describing changed files, verification, and any unfinished work.
 
+## Verification and Completion
+
+- Verify the result appropriately for the type of change. For code, run relevant available checks; for documents, review the content and formatting.
+- Do not claim that checks passed if they were not run.
+- At the end, briefly state what changed, how it was verified, and any material limitations.
+- Publish externally, send messages, and perform irreversible operations only within the scope authorized by the user.
