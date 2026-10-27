@@ -4,7 +4,18 @@ These instructions are intended for Claude Code only and apply to this directory
 
 ## Project Status
 
-The project currently has no application code, build commands, or test commands. Update this section when code is added.
+Chrome extension (Manifest V3, WXT + TypeScript, React, zod, Vitest) that reads the Google Form in the active tab and lets an LLM fill it page by page, never submitting without the user's confirmation. Full requirements: `docs/SPEC.md`. Backend design (draft, awaiting approval): `docs/backend-architecture.md`.
+
+No application code, build commands, or test commands yet. Update this section when code is added.
+
+## Scope for Claude Code: backend only
+
+- Own: `src/background.ts` (service worker), `src/providers/`, `src/shared/` (data models and message contract), session state, API key handling, host permissions, payload building.
+- Do not implement `parser/`, `filler/`, `ui/`, the options page, or the side panel unless the user asks; those belong to the Codex contributor.
+- `src/shared/` is the contract between both sides. Change it only with the user's agreement and call out every change in the handoff.
+- Hard rules from the spec that the backend enforces: LLM calls only from the service worker; the API key lives in `chrome.storage.local` and goes only to the chosen endpoint; only user-approved data goes into the LLM payload, and the exact payload can be shown before sending; never submit a form without confirmation; never bypass CAPTCHA.
+- Providers must be testable without a browser (mock `fetch`, recorded fixtures).
+- Before using Anthropic API details (model IDs, headers, streaming), load the `claude-api` skill instead of relying on memory.
 
 ## Communication
 
