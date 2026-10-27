@@ -4,6 +4,10 @@ Implementation notes that refine the approved draft:
 - `Answer` fields that were optional (`needsUser`, `otherText`) are `nullable` and always present, so one JSON schema works for strict structured output on every provider. The "Other" choice is `option: "__other__"` + `otherText`.
 - `Question.validation` is a fixed op enum per kind (see `src/shared/form.ts`); the parser maps Google's codes onto it.
 - Anthropic API key goes out as `Authorization: Bearer` (SDK 1.x behaviour).
+- Submit goes through the worker after all: `run.submit { confirmed: true }` is accepted only in `review` status, so the confirmation gate lives in one place instead of every UI.
+- `run.start` carries the approved profile field values (not keys); profiles stay in UI storage.
+- Run state is keyed `run:<tabId>`, not `run:<tabId>:<formId>`; state code is in `src/background/store.ts`.
+- Decisions from review: parser, filler and UI belong to the Codex contributor; default model `claude-opus-5-5`; Anthropic refusal fallback on.
 
 Scope: service worker, provider layer, shared contract, state, keys, permissions.
 Parser, filler, and UI are out of scope here; they only consume the contract in `src/shared/`.
@@ -184,42 +188,35 @@ In "Vyplnit vše" mode, the user approves fields and instructions once per run; 
 
 ## Message contract (`src/shared/messages.ts`)
 
-All messages are zod-validated on receive. Background ← UI:
+Source of truth is `src/shared/messages.ts` (zod). Every reply is `{ ok: true, data } | { ok: false, error }`. The worker accepts UI messages only from extension pages (`sender.url` under `chrome-extension://<id>/`) and content messages only from `https://docs.google.com/forms/*`; a content script's `tabId` is taken from the sender, never from the payload.
 
-| type | payload | reply |
+UI → worker:
+
+| type | payload | effect / reply |
 |---|---|---|
+| `settings.get` | — | `{ settings, hasKey, endpoint, permissionGranted }` (never the key) |
+| `settings.save` | `{ settings, apiKey? }` (`null` deletes the key) | same as `settings.get`. The options page must call `browser.permissions.request({ origins: [originPattern(endpointOrigin(settings))] })` itself, in the click handler (helpers in `src/shared/permissions.ts`) |
 | `settings.test` | — | `{ ok, model } \| { ok: false, error }` |
-| `run.start` | `{ tabId, mode, profileId, approvedFieldKeys, instructions }` | `RunState` |
-| `run.stop` | `{ tabId }` | aborts in-flight LLM call + tells content script to stop |
-| `fill.preview` | `{ tabId, pageIndex }` | `{ payload, hash, endpoint, model }` |
-| `fill.run` | `{ tabId, hash }` | `PageAnswers` (validated) |
-| `fill.repair` | `{ tabId, pageIndex, errors: { questionId, message }[] }` | `PageAnswers`; max 2 per page, then the remaining questions are `needsUser` |
-| `state.get` | `{ tabId }` | `RunState \| null` |
+| `state.get` | `{ tabId }` | `RunState \| undefined` |
+| `run.start` | `{ tabId, mode, approvedFields, instructions }` | resets answers, status `awaiting_approval`. The UI sends the approved profile field values themselves; profiles stay in UI storage |
+| `fill.preview` | `{ tabId }` (current page) | `{ hash, request, provider, model, endpoint }`; `request` is exactly what will be sent |
+| `fill.run` | `{ tabId, hash }` | `{ state, result, unresolved }`; refused if the hash or page changed |
+| `fill.repair` | `{ tabId }` | uses the stored form validation errors; max 2 per page, then those questions get `needsUser` |
+| `answers.update` | `{ tabId, answers }` | user edits |
+| `fill.apply` | `{ tabId }` | sends the current page's non-null answers to the content script; refused in `dry_run` |
+| `nav.next` | `{ tabId }` | forwards to the content script |
+| `run.review` | `{ tabId }` | status `review` |
+| `run.submit` | `{ tabId, confirmed: true }` | only from `review`; forwards `nav.submit` |
+| `run.stop` | `{ tabId }` | aborts the LLM call (also mid-backoff), tells the content script to stop |
 
-Background ← content script: `form.parsed { tabId, form }`, `page.changed { pageIndex }`, `captcha.detected` (run goes to `blocked`), `page.validationErrors`. Background → content script: `fill.apply { answers }`, `nav.next`, `stop`. Submit is never sent from background; only the UI review screen can trigger `nav.submit`, after the user confirms.
+Content script → worker: `form.parsed { form }` (same `formId` keeps progress, a different one starts fresh), `page.changed { pageIndex }` (going back truncates `pagePath`), `fill.applied { pageIndex, failed, hasNext }` (`hasNext: false` → `review`), `page.validationErrors { errors }`, `captcha.detected` (aborts, status `blocked`), `submit.done`.
+
+Worker → content script (`browser.tabs.sendMessage`): `fill.apply { pageIndex, answers }`, `nav.next`, `nav.submit`, `stop`.
+
+Worker → extension pages (`browser.runtime.sendMessage`, fire and forget): `state.changed { tabId, state }`, `llm.progress { tabId, chars }` (throttled to 200 ms), `llm.retry { tabId, attempt, delayMs, reason }`.
+
+Auto-advance: in `fill_all`, answers that are all confident (no `needsUser`, confidence ≥ threshold) are filled right away, and after a successful `fill.applied` the worker sends `nav.next`. In `step_approval` the UI drives every step. Submit always needs `run.review` and then `run.submit`.
 
 ## Run state (`chrome.storage.session`)
 
-```ts
-interface RunState {
-  tabId: number;
-  formId: string;
-  mode: "fill_all" | "step_approval" | "dry_run";
-  status: "idle" | "parsing" | "awaiting_approval" | "calling_llm" | "filling"
-        | "awaiting_user" | "review" | "blocked" | "stopped" | "done" | "error";
-  pagePath: number[];         // pages visited, in order (branching)
-  answers: Record<string, Answer>;   // by questionId, includes user edits
-  pending?: { hash: string; request: LLMRequest };
-  repairAttempts: Record<number, number>;
-  error?: string;
-  updatedAt: number;
-}
-```
-
-Keyed `run:<tabId>:<formId>`. Written after every transition, so a page reload or a service worker restart resumes from `pagePath.at(-1)`. A worker restart during an LLM call loses that call; state stays `calling_llm` with a stale `updatedAt`, and resume re-asks for approval instead of resending silently. Stop: one `AbortController` per tab in memory, plus `status = "stopped"` persisted so the content script and UI stop even if the worker restarted.
-
-## Open questions
-
-1. Scope boundary: confirm that parser, filler, options page, and side panel belong to the other contributor and the backend only provides `src/shared/` + the service worker.
-2. Default Anthropic model `claude-opus-5-5` (best quality, $4/$20 per MTok). `claude-sonnet-5-5` or `claude-haiku-5-5` are cheaper. The user picks in options; this is only the default.
-3. Server-side refusal fallback for Anthropic: keep it on (default) or drop it?
+Schema: `RunState` in `src/shared/state.ts`. Keyed `run:<tabId>` (the form id is inside; a different form in the same tab starts a new run). storage.session is closed to content scripts by default, which matters because the state holds the approved profile values. Written after every transition, so a page reload or a worker restart resumes from `pagePath.at(-1)`. A worker restart during an LLM call loses that call: the next read finds `calling_llm` with no live `AbortController`, switches to `awaiting_approval` and asks again instead of resending silently. State is removed when the tab closes.

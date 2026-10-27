@@ -1,8 +1,12 @@
 {
   "name": "forms-autofill",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "postinstall": "wxt prepare",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -15,6 +19,7 @@
   "devDependencies": {
     "@types/chrome": "^0.3.6",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wxt": "^0.21.5"
   }
 }
